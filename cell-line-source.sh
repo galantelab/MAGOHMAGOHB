@@ -25,14 +25,14 @@ source /home/users/rbarreiro/scripts/bash/jobs_limit.sh
 wd=$(dirname $(realpath $0))
 
 main(){
-	# 00_input
-	# 01_fastqc
-	# 02_merge_and_trim
-	# 03_kallisto
-	# 04_tximport
-	# 05_deseq2_pre
-	# 05_deseq2_run
-  # 06_STAR
+	00_input
+	01_fastqc
+	02_merge_and_trim
+	03_kallisto
+	04_tximport
+	05_deseq2_pre
+	05_deseq2_run
+  06_STAR
   07_rMATS
 }
 
@@ -111,15 +111,15 @@ main(){
 03_kallisto(){
 	local my_dir="${wd}/03-kallisto"
 
-	# mkdir -p ${my_dir}/input/
-	# for file in $(find ${wd}/02-merge_and_trim/ -name *fq.gz); do
-	# 	new_name=$(basename $file | sed 's/_val_..fq.gz/.fastq.gz/')
-	# 	ln -sf ${file} ${my_dir}/input/${new_name}
-	# done
+	mkdir -p ${my_dir}/input/
+	for file in $(find ${wd}/02-merge_and_trim/ -name *fq.gz); do
+		new_name=$(basename $file | sed 's/_val_..fq.gz/.fastq.gz/')
+		ln -sf ${file} ${my_dir}/input/${new_name}
+	done
 
-	# mkdir -p ${my_dir}/tmp
-	# kallisto index -i ${my_dir}/tmp/gencode.v29.transcripts.kallisto_index \
-	# 	/home/projects2/databases/gencode/release29/gencode.v29.transcripts.fa.gz
+	mkdir -p ${my_dir}/tmp
+	kallisto index -i ${my_dir}/tmp/gencode.v29.transcripts.kallisto_index \
+		/home/projects2/databases/gencode/release29/gencode.v29.transcripts.fa.gz
 
 	mkdir -p ${my_dir}/output
 	for fastq_file_r1 in $(find ${my_dir}/input -name "*_R1.fastq.gz"); do
@@ -139,23 +139,23 @@ main(){
 
   my_dir="$wd/04-tximport"
 
-  # # INPUT #####################################################################
-  # mkdir -p $my_dir/input
-  # ln -sf ${wd}/03-kallisto/output/* $my_dir/input
+  # INPUT #####################################################################
+  mkdir -p $my_dir/input
+  ln -sf ${wd}/03-kallisto/output/* $my_dir/input
 
-  # mkdir -p ${my_dir}/resources/gencode
-  # ln -sf /home/projects2/databases/gencode/release29/gencode.v29.annotation.gtf \
-  #  ${my_dir}/resources/gencode/
+  mkdir -p ${my_dir}/resources/gencode
+  ln -sf /home/projects2/databases/gencode/release29/gencode.v29.annotation.gtf \
+   ${my_dir}/resources/gencode/
 
-  # mkdir -p ${my_dir}/scripts
-  # ln -sf ${wd}/../scripts/kallisto_tx2gene.R  ${my_dir}/scripts/
+  mkdir -p ${my_dir}/scripts
+  ln -sf ${wd}/../scripts/kallisto_tx2gene.R  ${my_dir}/scripts/
 
-  # # # TPM #######################################################################
+  # # TPM #######################################################################
 
-  # mkdir -p ${my_dir}/tmp/tx2gene
-  # create_dict_table ${my_dir}/resources/gencode/gencode.v29.annotation.gtf > ${my_dir}/tmp/tx2gene/gencode_tsx2gene.tsv
+  mkdir -p ${my_dir}/tmp/tx2gene
+  create_dict_table ${my_dir}/resources/gencode/gencode.v29.annotation.gtf > ${my_dir}/tmp/tx2gene/gencode_tsx2gene.tsv
 
-  # # OUTPUT ####################################################################
+  # OUTPUT ####################################################################
   mkdir -p ${my_dir}/output/
   
   
@@ -234,12 +234,12 @@ create_dict_table(){
   my_dir="${wd}/06-STAR"
   mkdir -p ${my_dir}
 
-  # mkdir -p ${my_dir}/input
-  # ln -s  ${wd}/03-kallisto/input/* ${my_dir}/input/
+  mkdir -p ${my_dir}/input
+  ln -s  ${wd}/03-kallisto/input/* ${my_dir}/input/
 
   mkdir -p ${my_dir}/resources
   ln -sf /home/genomes/Homo_sapiens/hg38/hg38.25chrs.fa ${my_dir}/resources
-  # cp -r $(realpath /home/genomes/Homo_sapiens/hg38/toSTAR.25chrs) ${my_dir}/resources
+  cp -r $(realpath /home/genomes/Homo_sapiens/hg38/toSTAR.25chrs) ${my_dir}/resources
 
   mkdir -p ${my_dir}/resources/toSTAR.25chrs
   STAR \
@@ -281,14 +281,14 @@ create_dict_table(){
   s='RMATS'
   my_dir="${wd}/07-rMATS"
 
-  # mkdir -p ${my_dir}/input
-  # cp $(find ${wd}/06-STAR/output/ -name *.bam) ${my_dir}/input
+  mkdir -p ${my_dir}/input
+  cp $(find ${wd}/06-STAR/output/ -name *.bam) ${my_dir}/input
 
   mkdir -p ${my_dir}/resources
   cp $(realpath /home/projects2/databases/gencode/release29/gencode.v29.annotation.gtf) ${my_dir}/resources/
 
-  # find ${my_dir}/input -name "*_C*"  | tr "\n" "," > ${my_dir}/control.txt
-  # find ${my_dir}/input -name "*_KD*" | tr "\n" "," > ${my_dir}/kd.txt
+  find ${my_dir}/input -name "*_C*"  | tr "\n" "," > ${my_dir}/control.txt
+  find ${my_dir}/input -name "*_KD*" | tr "\n" "," > ${my_dir}/kd.txt
 
   read_len=151
   mkdir ${my_dir}/tmp/
