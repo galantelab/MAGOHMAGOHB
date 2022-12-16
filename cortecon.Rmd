@@ -1,0 +1,167 @@
+---
+title: "--"
+author: "rbarreiro"
+date: "--"
+output: 
+  html_document: 
+    theme: journal
+    css: rmark.css
+---
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(scales)
+  library(cowplot)
+  library(ggbeeswarm)
+  library(ggsci)
+  library(viridis)
+  library(knitr)
+  library(ggpubr)
+  library(ggrepel)
+  library(eulerr)
+  library(hrbrthemes)
+  library(ggtext)
+})
+
+theme_set(
+  theme_ipsum_rc(grid = 'Y') +
+    theme(
+      plot.title.position = "plot",
+      plot.margin = margin(25,25,25,25),
+      axis.title.x = element_markdown(hjust = .5, size = 12, margin = margin(10,0,0,0)),
+      axis.title.y = element_markdown(hjust = .5, size = 12, margin = margin(0,10,0,0)),
+      plot.subtitle = element_markdown(family = 'Roboto Condensed', color = 'grey60')
+    )
+)
+
+options(scipen=15000000)
+
+my_color_pal <- c(
+  UP=ggsci::pal_jco()(4)[1],
+  DOWN=ggsci::pal_jco()(4)[4]
+)
+
+```
+
+
+```{r}
+load('Cortecon_Base.RData')
+
+my_data <-
+  DEseq.genes %>% 
+  as.data.frame() %>%
+  select(-baseMean, -log2FoldChange,-lfcSE, -pvalue	,-padj) %>%
+  rownames_to_column('geneid') %>%
+  left_join(
+    tibble(geneid = names(SYMBOLS), genesymbol = SYMBOLS), by = "geneid") %>% 
+  filter(genesymbol %in% c('MAGOH','MAGOHB')) %>% 
+  pivot_longer(
+    names_to = "sample", values_to = "counts", -c(geneid, genesymbol)) %>% 
+  separate(sample, into = c('day','sample'), sep = '\\.') %>%
+  mutate(day = as.integer(str_replace(day,"D",''))) %>%
+  group_by(day, genesymbol) %>%
+  summarise(norm_counts = mean(counts), sd = sd(counts))
+
+my_data %>%  
+  ggplot(aes(x = day, y = norm_counts, color = genesymbol)) +
+  geom_point() +
+  geom_errorbar(
+    aes(ymin = norm_counts-sd, ymax = norm_counts + sd), width = .8) +
+  geom_line() +
+  labs(
+    x = '**Time** (days)',
+    y = '**Normalized counts** (DESeq)',
+    color = NULL
+  ) +
+  ggsci::scale_color_jco() 
+```
+
+```{r}
+my_data <-
+  edgeR.genes %>% 
+  as.data.frame() %>%
+  select(-c("FoldDiff","logFC","logCPM","LR","PValue","fdr")) %>%
+  rownames_to_column('geneid') %>%
+  left_join(
+    tibble(geneid = names(SYMBOLS), genesymbol = SYMBOLS), by = "geneid") %>% 
+  filter(genesymbol %in% c('MAGOH','MAGOHB')) %>% 
+  pivot_longer(
+    names_to = "sample", values_to = "counts", -c(geneid, genesymbol)) %>% 
+  separate(sample, into = c('day','sample'), sep = '\\.') %>%
+  mutate(day = as.integer(str_replace(day,"D",''))) %>%
+  group_by(day, genesymbol) %>%
+  summarise(norm_counts = mean(counts), sd = sd(counts))
+
+my_data %>%  
+  ggplot(aes(x = day, y = norm_counts, color = genesymbol)) +
+  geom_point() +
+  geom_errorbar(
+    aes(ymin = norm_counts-sd, ymax = norm_counts + sd), width = .8) +
+  geom_line() +
+  labs(
+    x = '**Time** (days)',
+    y = '**Normalized counts** (edgeR)',
+    color = NULL
+  ) +
+  ggsci::scale_color_jco()
+
+```
+
+```{r}
+my_data <-
+  norm.RNA.cts %>% 
+  as.data.frame() %>%
+  rownames_to_column('geneid') %>%
+  left_join(
+    tibble(geneid = names(SYMBOLS), genesymbol = SYMBOLS), by = "geneid") %>% 
+  filter(genesymbol %in% c('MAGOH','MAGOHB')) %>% 
+  pivot_longer(
+    names_to = "sample", values_to = "counts", -c(geneid, genesymbol)) %>% 
+  separate(sample, into = c('day','sample'), sep = '\\.') %>%
+  mutate(day = as.integer(str_replace(day,"D",''))) %>%
+  group_by(day, genesymbol) %>%
+  summarise(norm_counts = mean(counts), sd = sd(counts))
+
+my_data %>%  
+  ggplot(aes(x = day, y = norm_counts, color = genesymbol)) +
+  geom_point() +
+  geom_errorbar(
+    aes(ymin = norm_counts-sd, ymax = norm_counts + sd), width = .8) +
+  geom_line() +
+  labs(
+    x = '**Time** (days)',
+    y = '**Normalized counts** (?)',
+    color = NULL
+  ) +
+  ggsci::scale_color_jco()
+```
+
+```{r}
+my_data <-
+  RNA.raw %>% 
+  as.data.frame() %>%
+  rownames_to_column('geneid') %>%
+  left_join(
+    tibble(geneid = names(SYMBOLS), genesymbol = SYMBOLS), by = "geneid") %>% 
+  filter(genesymbol %in% c('MAGOH','MAGOHB')) %>% 
+  pivot_longer(
+    names_to = "sample", values_to = "counts", -c(geneid, genesymbol)) %>% 
+  separate(sample, into = c('day','sample'), sep = '\\.') %>%
+  mutate(day = as.integer(str_replace(day,"D",''))) %>%
+  group_by(day, genesymbol) %>%
+  summarise(norm_counts = mean(counts), sd = sd(counts))
+
+my_data %>%  
+  ggplot(aes(x = day, y = norm_counts, color = genesymbol)) +
+  geom_point() +
+  geom_errorbar(
+    aes(ymin = norm_counts-sd, ymax = norm_counts + sd), width = .8) +
+  geom_line() +
+  labs(
+    x = '**Time** (days)',
+    y = '**Raw counts**',
+    color = NULL
+  ) +
+  ggsci::scale_color_jco()
+```
+

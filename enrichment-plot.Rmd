@@ -1,0 +1,81 @@
+---
+title: "--"
+author: "rbarreiro"
+date: "--"
+output: 
+  html_document: 
+    theme: journal
+    css: rmark.css
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(scales)
+  library(cowplot)
+  library(ggbeeswarm)
+  library(ggsci)
+  library(viridis)
+  library(knitr)
+  library(ggpubr)
+  library(ggrepel)
+  library(eulerr)
+})
+
+theme_set(
+  theme_bw() + theme(plot.title = element_text(face = "bold"))
+)
+
+options(scipen=15000000)
+
+my_color_pal <- c(
+  UP=ggsci::pal_jco()(4)[1],
+  DOWN=ggsci::pal_jco()(4)[4]
+)
+```
+
+
+
+
+```{r}
+my_data <- read_csv('input/enrichment (13).csv') %>%
+  janitor::clean_names()
+
+
+my_data %>% 
+  ggplot(aes(y = reorder(pathway, n_genes), x = 1)) +
+  geom_point(aes(size = n_genes, color = enrichment_fdr)) +
+  scale_y_discrete(position = "right") +
+  theme(axis.title.x = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank()) +
+  labs(y = NULL, color = 'FDR', size = 'Genes')
+```
+
+```{r}
+# 13.02.2022
+my_data <- read_csv('input/enrichment (13).csv') %>%
+  janitor::clean_names() %>% 
+  mutate(term_id = str_replace(url, '.*/','')) 
+
+my_revigo_data <-
+  read_csv('input/RevigoTreeMap.csv', comment = '%') %>%
+  janitor::clean_names() %>%
+  mutate(name = str_replace_all(name,'"',''), name = str_to_lower(name))
+
+
+my_data %>% 
+  filter(term_id %in% my_revigo_data$term_id) %>%
+  mutate(term_id = factor(term_id, levels = my_revigo_data$term_id)) %>%
+  ggplot(aes(y = reorder(pathway, as.integer(term_id)), x = 1)) +
+  geom_point(aes(size = n_genes, color = enrichment_fdr)) +
+  scale_y_discrete(position = "right") +
+  theme(axis.title.x = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank()) +
+  labs(y = NULL, color = 'FDR', size = 'Genes')
+```

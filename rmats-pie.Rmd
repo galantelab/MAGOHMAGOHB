@@ -1,0 +1,137 @@
+---
+title: "--"
+author: "rbarreiro"
+date: "--"
+output: 
+  html_document: 
+    theme: journal
+    css: rmark.css
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(scales)
+  library(cowplot)
+  library(ggbeeswarm)
+  library(ggsci)
+  library(viridis)
+  library(knitr)
+  library(ggpubr)
+  library(ggrepel)
+  library(eulerr)
+})
+
+theme_set(
+  theme_bw() + theme(plot.title = element_text(face = "bold"))
+)
+
+options(scipen=15000000)
+
+my_color_pal <- c(
+  UP=ggsci::pal_jco()(4)[1],
+  DOWN=ggsci::pal_jco()(4)[4]
+)
+```
+
+
+
+```{r echo=FALSE, warning=FALSE, fig.width=3.35*1.25, fig.height=3.51*2.25}
+# for (IncLevelDifference_cutoff in c(0.1, 0.15, 0.2, 0.25, 0.3)){
+  
+  IncLevelDifference_cutoff <- 0.2
+  my_data <- data.frame()
+  for (my_filename in list.files('input', full.names = TRUE, include.dirs = FALSE)){
+    suppressMessages(x <- read_delim(my_filename, delim = '\t'))
+    x$EventType  <- basename(my_filename) %>% str_replace(".*_(.*).MATS.*","\\1")
+    x$RBP        <- basename(my_filename) %>% str_replace("_.*","")
+
+    my_data <- bind_rows(my_data,x)
+  }
+
+  my_data_50 <- my_data %>% filter(FDR < 0.01, abs(IncLevelDifference) > IncLevelDifference_cutoff) %>% mutate(Ctl = "Ctl50")
+  
+  
+only_ids <- 
+  my_data_50 %>%  
+  mutate(psi_signal = if_else(IncLevelDifference<0,'-PSI','+PSI')) %>%
+  unite(chr,strand,longExonStart_0base, longExonEnd, shortES, shortEE, flankingES, flankingEE, `1stExonStart_0base`, `1stExonEnd`,
+        `2ndExonStart_0base`,`2ndExonEnd`,upstreamES,upstreamEE,downstreamES,downstreamEE,riExonStart_0base,
+        riExonEnd,exonStart_0base,exonEnd,psi_signal,sep = "__", col = "my_id") %>%
+  select(my_id)
+
+
+my_data_with_id <-
+  my_data_50 %>%
+  bind_cols(only_ids)
+
+my_overlap <-
+  my_data_with_id %>%
+  count(my_id) %>%
+  filter(n > 1) %>%
+  pull(my_id)
+
+over <-
+  my_data_with_id %>%
+  filter(my_id %in% my_overlap)
+```
+
+```{r}
+p <-
+  my_data_with_id %>%
+  filter(RBP == 'U251') %>%
+  count(EventType) %>% 
+    mutate(n_raw = n) %>%
+  mutate(n = n / sum(n)) %>%
+  ggplot(aes(x="", y=n, fill=EventType)) + geom_bar(stat="identity", width=1)+
+  coord_polar("y", start=0) +
+  geom_label(aes(label = paste0(n_raw,"(",round(n*100), "%)")), position = position_stack(vjust = 0.5), size = 3) +
+  theme_classic() + theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5, color = "#666666")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "U251 - AS") +
+  ggsci::scale_fill_locuszoom()
+
+ggsave('U251.pdf',p)
+
+p <- 
+  my_data_with_id %>%
+  filter(RBP == 'U343') %>%
+  count(EventType) %>% 
+  mutate(n_raw = n) %>%
+  mutate(n = n / sum(n)) %>%
+  ggplot(aes(x="", y=n, fill=EventType)) + geom_bar(stat="identity", width=1)+
+  coord_polar("y", start=0) +
+  geom_label(aes(label = paste0(n_raw,"(",round(n*100), "%)")), position = position_stack(vjust = 0.5), size = 3) +
+  theme_classic() + theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5, color = "#666666")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "U343 - AS") +
+  ggsci::scale_fill_locuszoom()
+
+ggsave('U343.pdf', p)
+
+
+p <-
+  my_data_with_id %>%
+  filter(my_id %in% my_overlap) %>%
+  filter(RBP == 'U251') %>%
+  count(EventType) %>% 
+  mutate(n_raw = n) %>%
+  mutate(n = n / sum(n)) %>%
+  ggplot(aes(x="", y=n, fill=EventType)) + geom_bar(stat="identity", width=1)+
+  coord_polar("y", start=0) +
+  geom_label(aes(label = paste0(n_raw,"(",round(n*100), "%)")), position = position_stack(vjust = 0.5), size = 3) +
+  theme_classic() + theme(axis.line = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          plot.title = element_text(hjust = 0.5, color = "#666666")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = "Overlap - AS") +
+  ggsci::scale_fill_locuszoom()
+
+ggsave('overlap.pdf', p)
+
+```
+

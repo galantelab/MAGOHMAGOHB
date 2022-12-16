@@ -1,0 +1,172 @@
+---
+title: "--"
+author: "rbarreiro"
+date: "--"
+output: 
+  html_document: 
+    theme: journal
+    css: /Users/rbarreiro/my_lab/my-lab_folder/resources/rmark.css
+---
+
+```{r setup, include=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(scales)
+  library(cowplot)
+  library(ggbeeswarm)
+  library(ggsci)
+  library(viridis)
+  library(knitr)
+  library(ggpubr)
+  library(ggrepel)
+  library(eulerr)
+  library(ggseqlogo)
+})
+
+theme_set(
+  theme_minimal() + theme(plot.title = element_text(face = "bold"))
+)
+
+options(scipen=15000000)
+
+my_color_pal <- c(
+  UP=ggsci::pal_jco()(4)[1],
+  DOWN=ggsci::pal_jco()(4)[4]
+)
+
+my_data <-
+  read_tsv('input/gtex_MAGOH_genes_RSEM_wTCGA.txt') %>%
+  gather(key = "gene", value = "tpm", -sample.id, -tissue, -tcga_correspondence)
+
+my_data <- 
+  bind_rows(my_data,
+    my_data %>%
+      filter(tcga_correspondence == "TCGA-LGG") %>%
+      mutate(tcga_correspondence = 'TCGA-GBM'),
+    my_data %>%
+      filter(tcga_correspondence == "TCGA-LUSC") %>%
+      mutate(tcga_correspondence = 'TCGA-LUAD'),
+    my_data %>%
+      filter(tcga_correspondence == "TCGA-KIRP") %>%
+      mutate(tcga_correspondence = 'TCGA-KIRC'),
+     my_data %>%
+      filter(tcga_correspondence == "TCGA-UCS") %>%
+      mutate(tcga_correspondence = 'TCGA-UCEC')
+  )
+
+
+my_data <-
+  my_data %>%
+  mutate(tissue = case_when(
+    tissue == "Brain - Cortex"               ~ "Brain",
+    tissue == "Brain - Frontal Cortex (BA9)" ~ "Brain",
+    tissue == "Breast - Mammary Tissue"      ~ "Breast",
+    tissue == "Colon - Sigmoid"              ~ "Colon",
+    tissue == "Colon - Transverse"           ~ "Colon",
+    str_detect(tissue, "Esophagus")          ~ "Esophagus",
+    str_detect(tissue, "Kidney")             ~ "Kidney",
+    str_detect(tissue, "Skin")               ~ "Skin",
+    TRUE ~ tissue
+  )) %>%
+  filter(!tissue %in% c('Ovary','Skin','Testis'))
+
+my_data <- bind_rows(
+  my_data,
+  my_data %>%
+    group_by(sample.id, tissue, tcga_correspondence) %>%
+    summarise(tpm = sum(tpm)) %>%
+    mutate(gene = "MAGOH+MAGOHB")
+)
+
+p1 <- list()
+for (my_gene in my_data$gene %>% unique()){
+  data2plot1 <- my_data %>%
+    filter(gene == my_gene)
+    
+  my_order1 <- 
+    data2plot1 %>% 
+    group_by(tissue) %>%
+    summarise(median_tpm = median(tpm)) %>%
+    arrange(desc(median_tpm)) %>%
+    pull(tissue) %>%
+    unique
+    
+  p1[[my_gene]] <-
+    ggplot(data2plot1, aes(x = tissue, y = tpm)) +
+    geom_quasirandom(alpha = 0.3, color = 'grey70') +
+    geom_boxplot(width = 0.3) +
+    scale_x_discrete(limits = my_order1) +
+    theme(axis.title.x = element_blank()) +
+    coord_flip() +
+    ggtitle(my_gene)
+}
+
+p1 <-
+  ggplot(my_data %>% mutate(gene = factor(gene, levels =c("MAGOH", "MAGOHB", "MAGOH+MAGOHB"))), aes(x = tissue, y = tpm, color = gene, fill = gene)) +
+    geom_boxplot(width = 0.4, outlier.shape = NA) +
+    scale_x_discrete(limits = my_order1) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_text(angle = 40, hjust = 1)) +
+    ggtitle("MAGOH & MAGOHB Expression") +
+  scale_fill_manual(values = c('#66b4e8', '#ffeca1', '#46c782')) +
+  scale_color_manual(values = c(ggsci::pal_jco()(2), '#0ba352')) +
+  coord_cartesian(ylim = c(0,100)) +
+  labs(y = 'TPM') +
+  theme(legend.position = "None")
+
+# ggsave(filename = 'plot_magohs.svg', plot = p1, device = 'svg', width = 4, height = 2)
+
+
+my_data %>%
+  pivot_wider(names_from = gene, values_from = tpm) %>%
+  mutate(ratio = MAGOHB/(MAGOHB+MAGOH)) %>%
+  ggplot(aes(x = fct_reorder(tissue,ratio, median), y = ratio)) +
+  geom_boxplot(width = .5) +
+  ggbeeswarm::geom_quasirandom(alpha = .05, color = 'dodgerblue3') +
+  coord_flip() +
+  labs(x = NULL, y = 'MAGOHB/(MAGOH+MAGOHB)', title = 'MAGOHB expression ratio') +
+  hrbrthemes::scale_y_percent()
+
+
+my_data %>%
+  pivot_wider(names_from = gene, values_from = tpm) %>%
+  group_by(tissue) %>%
+  summarise(mean_magoh = median(MAGOH), mean_magohb = median(MAGOHB)) %>%
+  mutate(ratio = mean_magohb/(mean_magohb+mean_magoh)) %>%
+  ggplot(aes(x = fct_reorder(tissue,ratio, median), y = ratio)) +
+  geom_point() +
+  coord_flip() +
+  labs(x = NULL, y = 'MAGOHB/(MAGOH+MAGOHB)', title = 'MAGOHB expression ratio (median)') +
+  hrbrthemes::scale_y_percent()
+
+my_data %>%
+  pivot_wider(names_from = gene, values_from = tpm) %>%
+  group_by(tissue) %>%
+  summarise(mean_magoh = median(MAGOH), mean_magohb = median(MAGOHB)) %>%
+  mutate(ratio = mean_magoh - mean_magohb) %>%
+  ggplot(aes(x = fct_reorder(tissue,ratio, median), y = ratio)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = NULL, y = 'MAGOH - MAGOHB', title = 'MAGOHB expression delta (median)')
+
+my_data_scaled <-
+  my_data %>%
+  pivot_wider(names_from = gene, values_from = tpm) %>%
+  mutate(scale_magoh = scale(MAGOH), scale_magohb = scale(MAGOHB)) %>%
+  select(tissue, scale_magohb, scale_magoh) %>%
+  pivot_longer(names_to = 'gene', values_to = 'scaled_tpm', cols = -tissue)
+
+my_order <-
+  my_data_scaled %>%
+  group_by(tissue, gene) %>%
+  summarise(mean_tpm = median(scaled_tpm)) %>%
+  pivot_wider(names_from = gene, values_from = mean_tpm) %>%
+  transmute(tissue, delta = scale_magoh - scale_magohb) %>%
+  arrange(delta) %>%
+  pull(tissue)
+
+my_data_scaled %>%
+  ggplot(aes(x = factor(tissue, levels = my_order), y = scaled_tpm, color = gene)) +
+  geom_boxplot(width = .5) +
+  coord_flip() +
+  labs(x = NULL, y = 'Scaled TPM', title = 'MAGOHB expression ratio')
+```
